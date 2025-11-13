@@ -20,51 +20,89 @@ export default function RootLayout({
             __html: `
 (function() {
   'use strict';
-  try {
-    var cryptoObj = null;
-    if (typeof window !== 'undefined') {
-      cryptoObj = window.crypto || window.msCrypto;
-    }
-    if (!cryptoObj && typeof globalThis !== 'undefined') {
-      cryptoObj = globalThis.crypto;
-    }
-    if (!cryptoObj && typeof crypto !== 'undefined') {
-      cryptoObj = crypto;
-    }
-    if (cryptoObj && cryptoObj.getRandomValues) {
-      // Check if randomUUID exists and is actually callable
-      var needsPolyfill = true;
-      if (cryptoObj.randomUUID) {
-        try {
-          // Try to call it to see if it works
-          var testUUID = cryptoObj.randomUUID();
-          if (typeof testUUID === 'string' && testUUID.length > 0) {
-            needsPolyfill = false;
-          }
-        } catch(e) {
-          // If it throws, we need the polyfill
-          needsPolyfill = true;
-        }
+  // Polyfill crypto.randomUUID immediately before any other scripts
+  function polyfillRandomUUID() {
+    try {
+      var cryptoObj = null;
+      var contexts = [];
+      
+      // Collect all possible crypto contexts
+      if (typeof window !== 'undefined') {
+        contexts.push(window);
+        if (window.crypto) cryptoObj = window.crypto;
+        if (!cryptoObj && window.msCrypto) cryptoObj = window.msCrypto;
       }
-      if (needsPolyfill) {
-        cryptoObj.randomUUID = function() {
+      if (typeof globalThis !== 'undefined') {
+        contexts.push(globalThis);
+        if (!cryptoObj && globalThis.crypto) cryptoObj = globalThis.crypto;
+      }
+      if (typeof global !== 'undefined') {
+        contexts.push(global);
+        if (!cryptoObj && global.crypto) cryptoObj = global.crypto;
+      }
+      if (typeof self !== 'undefined') {
+        contexts.push(self);
+        if (!cryptoObj && self.crypto) cryptoObj = self.crypto;
+      }
+      
+      // If no crypto found, try to create one
+      if (!cryptoObj && typeof crypto !== 'undefined') {
+        cryptoObj = crypto;
+      }
+      
+      if (cryptoObj && cryptoObj.getRandomValues) {
+        // Create the polyfill function
+        var polyfillFn = function() {
           var bytes = new Uint8Array(16);
           cryptoObj.getRandomValues(bytes);
-          bytes[6] = (bytes[6] & 0x0f) | 0x40;
-          bytes[8] = (bytes[8] & 0x3f) | 0x80;
+          bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+          bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
           var hex = Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
           return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20, 32)].join('-');
         };
+        
+        // Always replace randomUUID if it doesn't exist or doesn't work
+        var needsPolyfill = true;
+        if (cryptoObj.randomUUID) {
+          try {
+            var testUUID = cryptoObj.randomUUID();
+            if (typeof testUUID === 'string' && testUUID.length > 0) {
+              needsPolyfill = false;
+            }
+          } catch(e) {
+            needsPolyfill = true;
+          }
+        }
+        
+        if (needsPolyfill) {
+          // Replace in the crypto object
+          cryptoObj.randomUUID = polyfillFn;
+          
+          // Also ensure all contexts have the crypto object with randomUUID
+          contexts.forEach(function(ctx) {
+            if (ctx && !ctx.crypto) {
+              ctx.crypto = cryptoObj;
+            } else if (ctx && ctx.crypto && !ctx.crypto.randomUUID) {
+              ctx.crypto.randomUUID = polyfillFn;
+            }
+          });
+        }
       }
-      if (typeof window !== 'undefined' && !window.crypto) {
-        window.crypto = cryptoObj;
-      }
-      if (typeof globalThis !== 'undefined' && !globalThis.crypto) {
-        globalThis.crypto = cryptoObj;
-      }
+    } catch(e) {
+      console.warn('Crypto polyfill failed:', e);
     }
-  } catch(e) {
-    console.warn('Crypto polyfill failed:', e);
+  }
+  
+  // Run immediately
+  polyfillRandomUUID();
+  
+  // Also run on DOMContentLoaded as a fallback
+  if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', polyfillRandomUUID);
+    } else {
+      polyfillRandomUUID();
+    }
   }
 })();
             `,
