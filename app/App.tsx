@@ -26,10 +26,10 @@ export default function App() {
       <div className="fixed left-4 top-1/2 -translate-y-1/2 z-0">
         <div className="text-left p-6">
           <p className="text-6xl font-bold text-slate-400 dark:text-slate-600 opacity-60 whitespace-nowrap pointer-events-none">
-            QSNCC Agent Chatkit
+            QSNCC Agent chat
           </p>
           <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 mt-2 pointer-events-none">
-            app {APP_VERSION_NUMBER} | agent {AGENT_VERSION}
+            version : app {APP_VERSION_NUMBER} | agent {AGENT_VERSION} | display type : chatkit
           </p>
           <div className="mt-4">
             <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 font-mono pointer-events-none">
@@ -37,7 +37,7 @@ export default function App() {
             </p>
             {INSTRUCTIONS_URL && (
               <button
-                onClick={() => window.open('/instructions', '_blank')}
+                onClick={() => window.open(INSTRUCTIONS_URL, '_blank')}
                 className="mt-2 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all opacity-90 hover:opacity-100 pointer-events-auto flex items-center gap-1.5"
                 title="Read me instruction"
               >
