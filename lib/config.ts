@@ -11,7 +11,7 @@ try {
 }
 
 export const APP_VERSION_NUMBER = APP_VERSION;
-export const AGENT_VERSION = "27.0.0";
+export const AGENT_VERSION = "opi-mm-wf-27.0.0";
 
 export const WORKFLOW_ID =
   process.env.NEXT_PUBLIC_CHATKIT_WORKFLOW_ID?.trim() ?? "";

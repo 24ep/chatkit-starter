@@ -32,3 +32,52 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
+
+/* Instructions content styling */
+.instructions-content {
+  color: rgb(51, 65, 85);
+}
+
+.instructions-content p {
+  margin-bottom: 1rem;
+}
+
+.instructions-content h1,
+.instructions-content h2,
+.instructions-content h3,
+.instructions-content h4,
+.instructions-content h5,
+.instructions-content h6 {
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: inherit;
+}
+
+.instructions-content ul,
+.instructions-content ol {
+  margin-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.instructions-content li {
+  margin-bottom: 0.5rem;
+}
+
+.instructions-content a {
+  color: rgb(59, 130, 246);
+  text-decoration: underline;
+}
+
+.instructions-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+.dark .instructions-content {
+  color: rgb(226, 232, 240);
+}
+
+.dark .instructions-content a {
+  color: rgb(96, 165, 250);
+}

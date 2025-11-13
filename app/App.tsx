@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { ChatKitPanel, type FactAction } from "@/components/ChatKitPanel";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { WORKFLOW_ID, INSTRUCTIONS_URL, APP_VERSION_NUMBER, AGENT_VERSION } from "@/lib/config";
-import { InstructionsModal } from "@/components/InstructionsModal";
 
 export default function App() {
   const { scheme, setScheme } = useColorScheme();
-  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
 
   const handleWidgetAction = useCallback(async (action: FactAction) => {
     if (process.env.NODE_ENV !== "production") {
@@ -39,7 +37,7 @@ export default function App() {
             </p>
             {INSTRUCTIONS_URL && (
               <button
-                onClick={() => setIsInstructionsModalOpen(true)}
+                onClick={() => window.open('/instructions', '_blank')}
                 className="mt-2 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all opacity-90 hover:opacity-100 pointer-events-auto flex items-center gap-1.5"
                 title="Read me instruction"
               >
@@ -101,12 +99,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Instructions Modal */}
-      <InstructionsModal
-        isOpen={isInstructionsModalOpen}
-        onClose={() => setIsInstructionsModalOpen(false)}
-        instructionsUrl={INSTRUCTIONS_URL}
-      />
     </main>
   );
 }
