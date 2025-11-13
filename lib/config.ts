@@ -1,9 +1,25 @@
 import { ColorScheme, StartScreenPrompt, ThemeOption } from "@openai/chatkit";
 
+// Read app version from package.json
+let APP_VERSION = "1.0.0-alpha";
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const packageJson = require("../package.json");
+  APP_VERSION = packageJson.version || APP_VERSION;
+} catch {
+  // Fallback to default if package.json can't be read
+}
+
+export const APP_VERSION_NUMBER = APP_VERSION;
+export const AGENT_VERSION = "27.0.0";
+
 export const WORKFLOW_ID =
   process.env.NEXT_PUBLIC_CHATKIT_WORKFLOW_ID?.trim() ?? "";
 
 export const CREATE_SESSION_ENDPOINT = "/api/create-session";
+
+export const INSTRUCTIONS_URL =
+  process.env.NEXT_PUBLIC_INSTRUCTIONS_URL?.trim() ?? "";
 
 export const STARTER_PROMPTS: StartScreenPrompt[] = [
   {

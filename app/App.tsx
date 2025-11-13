@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { ChatKitPanel, type FactAction } from "@/components/ChatKitPanel";
 import { useColorScheme } from "@/hooks/useColorScheme";
-import { WORKFLOW_ID } from "@/lib/config";
+import { WORKFLOW_ID, INSTRUCTIONS_URL, APP_VERSION_NUMBER, AGENT_VERSION } from "@/lib/config";
+import { InstructionsModal } from "@/components/InstructionsModal";
 
 export default function App() {
   const { scheme, setScheme } = useColorScheme();
+  const [isInstructionsModalOpen, setIsInstructionsModalOpen] = useState(false);
 
   const handleWidgetAction = useCallback(async (action: FactAction) => {
     if (process.env.NODE_ENV !== "production") {
@@ -23,17 +25,42 @@ export default function App() {
   return (
     <main className="flex min-h-screen flex-col p-4 relative" style={{ backgroundColor: 'rgba(255, 245, 220, 1)' }}>
       {/* Agent Name and Number Text on Background */}
-      <div className="fixed left-4 top-1/2 -translate-y-1/2 z-0 pointer-events-none">
+      <div className="fixed left-4 top-1/2 -translate-y-1/2 z-0">
         <div className="text-left p-6">
-          <p className="text-6xl font-bold text-slate-400 dark:text-slate-600 opacity-60 whitespace-nowrap">
+          <p className="text-6xl font-bold text-slate-400 dark:text-slate-600 opacity-60 whitespace-nowrap pointer-events-none">
             QSNCC Agent Chatkit
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 mt-2">
-            Version 27 (Engine evaluate test)
+          <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 mt-2 pointer-events-none">
+            app {APP_VERSION_NUMBER} | agent {AGENT_VERSION}
           </p>
-          <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 mt-4 font-mono">
-            Workflow ID: {WORKFLOW_ID || "Not configured"}
-          </p>
+          <div className="mt-4">
+            <p className="text-sm text-slate-500 dark:text-slate-500 opacity-70 font-mono pointer-events-none">
+              Workflow ID: {WORKFLOW_ID || "Not configured"}
+            </p>
+            {INSTRUCTIONS_URL && (
+              <button
+                onClick={() => setIsInstructionsModalOpen(true)}
+                className="mt-2 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-300 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-white dark:hover:bg-slate-800 hover:shadow-md transition-all opacity-90 hover:opacity-100 pointer-events-auto flex items-center gap-1.5"
+                title="Read me instruction"
+              >
+                <svg
+                  className="w-3.5 h-3.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                  />
+                </svg>
+                Read me instruction
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -73,6 +100,13 @@ export default function App() {
           />
         </div>
       </div>
+
+      {/* Instructions Modal */}
+      <InstructionsModal
+        isOpen={isInstructionsModalOpen}
+        onClose={() => setIsInstructionsModalOpen(false)}
+        instructionsUrl={INSTRUCTIONS_URL}
+      />
     </main>
   );
 }
