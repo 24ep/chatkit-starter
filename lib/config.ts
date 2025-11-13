@@ -7,13 +7,18 @@ export const CREATE_SESSION_ENDPOINT = "/api/create-session";
 
 export const STARTER_PROMPTS: StartScreenPrompt[] = [
   {
-    label: "What can you do?",
-    prompt: "What can you do?",
+    label: "What event today?",
+    prompt: "What event today?",
+    icon: "circle-question",
+  },
+  {
+    label: "What are the open and close times of the venue?",
+    prompt: "What are the open and close times of the venue?",
     icon: "circle-question",
   },
 ];
 
-export const PLACEHOLDER_INPUT = "Ask anything...";
+export const PLACEHOLDER_INPUT = "Type your question about QSNCC";
 
 export const GREETING = "How can I help you today?";
 
