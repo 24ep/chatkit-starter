@@ -132,7 +132,6 @@ export async function POST(request: Request): Promise<Response> {
                 statusCode: upstreamResponse.status,
               },
             });
-            trace.end();
           }
         } catch (langfuseError) {
           // Don't fail the request if Langfuse tracking fails
@@ -201,7 +200,9 @@ export async function POST(request: Request): Promise<Response> {
     
     // Alternative: Use client_secret as a session identifier if available
     // The client_secret is unique per session and can be used for correlation
-    const chatkitClientSecret = clientSecret ? `secret_${clientSecret.substring(0, 8)}...` : null;
+    const chatkitClientSecret = (typeof clientSecret === "string" && clientSecret) 
+      ? `secret_${clientSecret.substring(0, 8)}...` 
+      : null;
     
     // Track session creation in Langfuse (server-side) with ChatKit trace sync
     if (userId) {
@@ -307,7 +308,6 @@ export async function POST(request: Request): Promise<Response> {
               exception: true,
             },
           });
-          trace.end();
         }
       }
     } catch (langfuseError) {

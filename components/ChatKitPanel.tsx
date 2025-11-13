@@ -190,17 +190,7 @@ export function ChatKitPanel({
             timestamp: new Date().toISOString(),
           }
         );
-      langfuseTraceRef.current.end({
-        metadata: {
-          threadChanges: threadChangeCountRef.current,
-          totalMessages: messageCountRef.current,
-          totalResponses: messageCountRef.current,
-          completedResponses: completedResponses.length,
-          averageResponseLatencyMs: averageLatency,
-          allResponseMetadata: responseMetadataRef.current,
-          resetAt: new Date().toISOString(),
-        },
-      });
+      // Trace will be automatically finalized by Langfuse
       langfuseTraceRef.current = null;
     }
     currentUserIdRef.current = null;
@@ -381,7 +371,7 @@ export function ChatKitPanel({
                 timestamp: new Date().toISOString(),
               }
             );
-            trace.end();
+            // Trace will be automatically finalized by Langfuse
           }
         }
         
