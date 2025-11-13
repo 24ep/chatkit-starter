@@ -146,6 +146,43 @@ function methodNotAllowedResponse(): Response {
   });
 }
 
+function generateUUID(): string {
+  // Try crypto.randomUUID first (available in modern browsers and Edge Runtime)
+  if (typeof crypto !== "undefined" && crypto.randomUUID && typeof crypto.randomUUID === "function") {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      // Fall through to alternative method
+    }
+  }
+
+  // Fallback: Use Web Crypto API's getRandomValues (more widely supported)
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    try {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      // Format as UUID v4
+      bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+      bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant 10
+      const hex = Array.from(bytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      return [
+        hex.slice(0, 8),
+        hex.slice(8, 12),
+        hex.slice(12, 16),
+        hex.slice(16, 20),
+        hex.slice(20, 32),
+      ].join("-");
+    } catch {
+      // Fall through to simple random method
+    }
+  }
+
+  // Last resort: simple random string (not a proper UUID, but works)
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
 async function resolveUserId(request: Request): Promise<{
   userId: string;
   sessionCookie: string | null;
@@ -158,10 +195,7 @@ async function resolveUserId(request: Request): Promise<{
     return { userId: existing, sessionCookie: null };
   }
 
-  const generated =
-    typeof crypto.randomUUID === "function"
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2);
+  const generated = generateUUID();
 
   return {
     userId: generated,
