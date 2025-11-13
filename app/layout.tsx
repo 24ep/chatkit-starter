@@ -32,7 +32,21 @@ export default function RootLayout({
       cryptoObj = crypto;
     }
     if (cryptoObj && cryptoObj.getRandomValues) {
-      if (!cryptoObj.randomUUID) {
+      // Check if randomUUID exists and is actually callable
+      var needsPolyfill = true;
+      if (cryptoObj.randomUUID) {
+        try {
+          // Try to call it to see if it works
+          var testUUID = cryptoObj.randomUUID();
+          if (typeof testUUID === 'string' && testUUID.length > 0) {
+            needsPolyfill = false;
+          }
+        } catch(e) {
+          // If it throws, we need the polyfill
+          needsPolyfill = true;
+        }
+      }
+      if (needsPolyfill) {
         cryptoObj.randomUUID = function() {
           var bytes = new Uint8Array(16);
           cryptoObj.getRandomValues(bytes);

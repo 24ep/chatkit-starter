@@ -148,11 +148,19 @@ function methodNotAllowedResponse(): Response {
 
 function generateUUID(): string {
   // Try crypto.randomUUID first (available in modern browsers and Edge Runtime)
-  if (typeof crypto !== "undefined" && crypto.randomUUID && typeof crypto.randomUUID === "function") {
+  // Check if it exists, is a function, AND can be called successfully
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     try {
-      return crypto.randomUUID();
+      // Verify it's actually callable by attempting to call it
+      if (typeof crypto.randomUUID === "function") {
+        const uuid = crypto.randomUUID();
+        // Verify it returns a valid string
+        if (typeof uuid === "string" && uuid.length > 0) {
+          return uuid;
+        }
+      }
     } catch {
-      // Fall through to alternative method
+      // Fall through to alternative method if it throws
     }
   }
 
