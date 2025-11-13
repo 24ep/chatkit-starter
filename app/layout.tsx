@@ -18,8 +18,43 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
-(function() {
+// CRITICAL: This polyfill MUST run before any other code
+// Execute immediately without any wrapper to ensure earliest execution
+!function() {
   'use strict';
+  
+  // IMMEDIATE polyfill application - apply before defining the function
+  // This ensures it's available even if code executes during function definition
+  try {
+    if (typeof crypto !== 'undefined' && crypto && crypto.getRandomValues) {
+      var immediatePolyfill = function() {
+        var bytes = new Uint8Array(16);
+        crypto.getRandomValues(bytes);
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        var hex = Array.from(bytes).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+        return [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20, 32)].join('-');
+      };
+      try {
+        // Direct assignment first (fastest)
+        crypto.randomUUID = immediatePolyfill;
+        // Then try to make it more permanent with defineProperty
+        try {
+          Object.defineProperty(crypto, 'randomUUID', {
+            value: immediatePolyfill,
+            writable: true,
+            configurable: true,
+            enumerable: false
+          });
+        } catch(e) {
+          // If that fails, the direct assignment above should still work
+        }
+      } catch(e) {
+        // Silently fail
+      }
+    }
+  } catch(e) {}
+  
   // Polyfill crypto.randomUUID immediately before any other scripts
   // This must run synchronously to ensure it's available before any other code executes
   function polyfillRandomUUID() {
@@ -118,18 +153,27 @@ export default function RootLayout({
             var polyfillFn = createPolyfill(crypto);
             // Always polyfill the global crypto object
             // This is critical for non-secure contexts where randomUUID exists but throws
+            // Use a getter to ensure it's always available
             try {
               Object.defineProperty(crypto, 'randomUUID', {
-                value: polyfillFn,
-                writable: true,
+                get: function() { return polyfillFn; },
                 configurable: true,
                 enumerable: false
               });
             } catch(e) {
               try {
-                crypto.randomUUID = polyfillFn;
+                Object.defineProperty(crypto, 'randomUUID', {
+                  value: polyfillFn,
+                  writable: true,
+                  configurable: true,
+                  enumerable: false
+                });
               } catch(e2) {
-                // Silently fail
+                try {
+                  crypto.randomUUID = polyfillFn;
+                } catch(e3) {
+                  // Silently fail
+                }
               }
             }
             // Also ensure window.crypto.randomUUID is polyfilled if window.crypto exists
@@ -142,16 +186,70 @@ export default function RootLayout({
         }
       }
       
+      // Final aggressive polyfill: ensure crypto.randomUUID is always available
+      // This handles cases where code tries to access it before polyfill runs
+      // Also handles cases where randomUUID exists but is not a function
+      try {
+        if (typeof crypto !== 'undefined' && crypto && crypto.getRandomValues) {
+          var finalPolyfill = createPolyfill(crypto);
+          
+          // Check if randomUUID exists but is not a function (common in non-secure contexts)
+          var needsReplacement = false;
+          if (crypto.randomUUID) {
+            if (typeof crypto.randomUUID !== 'function') {
+              needsReplacement = true;
+            } else {
+              // It's a function, but might throw - we'll replace it anyway to be safe
+              needsReplacement = true;
+            }
+          } else {
+            needsReplacement = true;
+          }
+          
+          if (needsReplacement) {
+            // Try to set it using defineProperty with a getter (most reliable)
+            try {
+              var existingDescriptor = Object.getOwnPropertyDescriptor(crypto, 'randomUUID');
+              if (!existingDescriptor || existingDescriptor.configurable !== false) {
+                Object.defineProperty(crypto, 'randomUUID', {
+                  get: function() { return finalPolyfill; },
+                  configurable: true,
+                  enumerable: false
+                });
+              } else {
+                // If not configurable, try direct assignment
+                crypto.randomUUID = finalPolyfill;
+              }
+            } catch(e) {
+              // Fallback to direct assignment
+              try {
+                crypto.randomUUID = finalPolyfill;
+              } catch(e2) {
+                // Silently fail
+              }
+            }
+          }
+        }
+      } catch(e) {
+        // Silently fail
+      }
+      
       
     } catch(e) {
       console.warn('Crypto polyfill failed:', e);
     }
   }
   
-  // Run immediately and synchronously (most important - runs first)
+  // CRITICAL: Apply polyfill IMMEDIATELY and MULTIPLE TIMES
+  // This ensures it's available before any bundled code runs
+  
+  // First application - runs synchronously before anything else
   polyfillRandomUUID();
   
-  // Also run immediately again to catch any edge cases
+  // Second application - catches any edge cases
+  polyfillRandomUUID();
+  
+  // Third application - ensures it's applied
   polyfillRandomUUID();
   
   // Also run on DOMContentLoaded as a fallback
@@ -163,12 +261,14 @@ export default function RootLayout({
     }
   }
   
-  // Run again after a short delay to catch any late-loading scripts
+  // Run again after delays to catch any late-loading scripts
   if (typeof window !== 'undefined' && window.setTimeout) {
     setTimeout(polyfillRandomUUID, 0);
+    setTimeout(polyfillRandomUUID, 1);
     setTimeout(polyfillRandomUUID, 10);
+    setTimeout(polyfillRandomUUID, 50);
   }
-})();
+}();
             `,
           }}
         />
