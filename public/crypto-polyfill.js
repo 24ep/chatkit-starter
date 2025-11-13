@@ -1,34 +1,6 @@
-import Script from "next/script";
-import type { Metadata } from "next";
-import "./globals.css";
-
-export const metadata: Metadata = {
-  title: "AgentKit demo",
-  description: "Demo of ChatKit with hosted workflow",
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
-  return (
-    <html lang="en">
-      <head>
-        {/* CRITICAL: Load polyfill FIRST with blocking script tag - runs synchronously before everything */}
-        <script src="/crypto-polyfill.js" />
-        {/* Also load using Script component with beforeInteractive as backup */}
-        <Script
-          src="/crypto-polyfill.js"
-          strategy="beforeInteractive"
-        />
-        {/* Backup inline polyfill - runs immediately */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
 // CRITICAL: This polyfill MUST run before any other code
-// Execute immediately without any wrapper to ensure earliest execution
-!function() {
+// This file is loaded synchronously and blocks all other scripts
+(function() {
   'use strict';
   
   // IMMEDIATE polyfill application - apply before defining the function
@@ -184,10 +156,6 @@ export default function RootLayout({
                 }
               }
             }
-            // Also ensure window.crypto.randomUUID is polyfilled if window.crypto exists
-            if (typeof window !== 'undefined' && window.crypto && window.crypto === crypto) {
-              // Already handled by ensureRandomUUID above
-            }
           }
         } catch(e) {
           // Silently fail
@@ -242,7 +210,6 @@ export default function RootLayout({
         // Silently fail
       }
       
-      
     } catch(e) {
       console.warn('Crypto polyfill failed:', e);
     }
@@ -276,16 +243,5 @@ export default function RootLayout({
     setTimeout(polyfillRandomUUID, 10);
     setTimeout(polyfillRandomUUID, 50);
   }
-}();
-            `,
-          }}
-        />
-        <Script
-          src="https://cdn.platform.openai.com/deployments/chatkit/chatkit.js"
-          strategy="beforeInteractive"
-        />
-      </head>
-      <body className="antialiased">{children}</body>
-    </html>
-  );
-}
+})();
+
