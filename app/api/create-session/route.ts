@@ -1,4 +1,5 @@
 import { WORKFLOW_ID } from "@/lib/config";
+import { createTrace, getLangfuseClient } from "@/lib/langfuse";
 
 export const runtime = "edge";
 
@@ -77,6 +78,8 @@ export async function POST(request: Request): Promise<Response> {
               parsedBody?.chatkit_configuration?.file_upload?.enabled ?? false,
           },
         },
+        // Note: ChatKit API doesn't support metadata parameter in session creation
+        // We'll sync trace IDs through Langfuse metadata instead
       }),
     });
 
@@ -98,6 +101,45 @@ export async function POST(request: Request): Promise<Response> {
         statusText: upstreamResponse.statusText,
         body: upstreamJson,
       });
+      
+      // Track session creation failure in Langfuse
+      if (userId) {
+        try {
+          const trace = createTrace(
+            userId,
+            userId,
+            {
+              workflowId: resolvedWorkflowId,
+              action: "session_creation_failed",
+              errorType: "upstream_error",
+            },
+            request
+          );
+          if (trace) {
+            trace.span({
+              name: "session_creation_error",
+              input: {
+                workflowId: resolvedWorkflowId,
+                requestBody: parsedBody,
+              },
+              output: {
+                error: upstreamError ?? upstreamResponse.statusText,
+                status: upstreamResponse.status,
+                details: upstreamJson,
+              },
+              metadata: {
+                level: "ERROR",
+                statusCode: upstreamResponse.status,
+              },
+            });
+            trace.end();
+          }
+        } catch (langfuseError) {
+          // Don't fail the request if Langfuse tracking fails
+          console.error("[create-session] Langfuse error tracking failed:", langfuseError);
+        }
+      }
+      
       return buildJsonResponse(
         {
           error:
@@ -113,9 +155,118 @@ export async function POST(request: Request): Promise<Response> {
 
     const clientSecret = upstreamJson?.client_secret ?? null;
     const expiresAfter = upstreamJson?.expires_after ?? null;
+    
+    // Log full response in development to see what ChatKit actually returns
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[create-session] ChatKit API response keys:", Object.keys(upstreamJson || {}));
+      console.log("[create-session] ChatKit API response:", JSON.stringify(upstreamJson, null, 2));
+    }
+    
+    // Extract ChatKit trace/run IDs from response if available
+    // Note: ChatKit API may not return these in session creation response
+    // They might only be available during actual conversations or through the ChatKit SDK
+    const chatkitTraceId = upstreamJson?.trace_id as string | undefined;
+    const chatkitRunId = upstreamJson?.run_id as string | undefined;
+    const chatkitSessionId = upstreamJson?.session_id as string | undefined;
+    
+    // Extract agent/workflow version from ChatKit response if available
+    // ChatKit might return version info in workflow, agent, or version fields
+    let chatkitAgentVersion = 
+      upstreamJson?.agent_version as string | undefined ||
+      upstreamJson?.workflow_version as string | undefined ||
+      upstreamJson?.version as string | undefined ||
+      (upstreamJson?.workflow as { version?: string })?.version ||
+      (upstreamJson?.agent as { version?: string })?.version ||
+      null;
+    
+    // If no version in response, try to extract from workflow ID pattern
+    // Some workflows might have version info embedded in the ID or metadata
+    if (!chatkitAgentVersion && resolvedWorkflowId) {
+      // Check if workflow ID contains version pattern (e.g., wf_xxx_v27)
+      const versionMatch = resolvedWorkflowId.match(/[_-]v?(\d+(?:\.\d+)*(?:-[a-z0-9]+)?)/i);
+      if (versionMatch) {
+        chatkitAgentVersion = versionMatch[1];
+      }
+      
+      // Also check workflow metadata if available
+      const workflowMeta = upstreamJson?.workflow as Record<string, unknown> | undefined;
+      if (workflowMeta) {
+        chatkitAgentVersion = chatkitAgentVersion || 
+          (workflowMeta.version as string) ||
+          (workflowMeta.agent_version as string) ||
+          (workflowMeta.revision as string) ||
+          null;
+      }
+    }
+    
+    // Alternative: Use client_secret as a session identifier if available
+    // The client_secret is unique per session and can be used for correlation
+    const chatkitClientSecret = clientSecret ? `secret_${clientSecret.substring(0, 8)}...` : null;
+    
+    // Track session creation in Langfuse (server-side) with ChatKit trace sync
+    if (userId) {
+      try {
+        const trace = createTrace(
+          userId,
+          userId, // Use userId as sessionId if no session ID is available
+          {
+            workflowId: resolvedWorkflowId,
+            action: "session_created",
+            expiresAfter,
+            success: true,
+            fileUploadEnabled: parsedBody?.chatkit_configuration?.file_upload?.enabled ?? false,
+            chatkitConfiguration: {
+              fileUpload: {
+                enabled: parsedBody?.chatkit_configuration?.file_upload?.enabled ?? false,
+              },
+            },
+            // Sync ChatKit trace information (only include if available)
+            // Note: ChatKit API doesn't return trace/run IDs in session creation response
+            // These are only available during conversations or through ChatKit SDK
+            ...(chatkitTraceId ? { chatkitTraceId } : {}),
+            ...(chatkitRunId ? { chatkitRunId } : {}),
+            ...(chatkitSessionId ? { chatkitSessionId } : {}),
+            ...(chatkitClientSecret ? { chatkitClientSecret } : {}),
+            ...(chatkitAgentVersion ? { chatkitAgentVersion } : {}),
+            ...(upstreamJson?.metadata ? { chatkitMetadata: upstreamJson.metadata as Record<string, unknown> } : {}),
+            // Store full response keys for debugging (development only)
+            ...(process.env.NODE_ENV !== "production" ? { chatkitResponseKeys: Object.keys(upstreamJson || {}) } : {}),
+            // Use ChatKit agent version if available, otherwise use configured version
+            agentVersion: chatkitAgentVersion || process.env.NEXT_PUBLIC_AGENT_VERSION || "opi-mm-wf-27.0.0",
+            // Note about ChatKit trace IDs
+            chatkitTraceNote: !chatkitTraceId && !chatkitRunId && !chatkitSessionId 
+              ? "ChatKit trace IDs not available in session creation response. They may be available during conversations."
+              : undefined,
+          },
+          request
+        );
+        
+        if (trace && process.env.NODE_ENV !== "production") {
+          console.log("[create-session] Langfuse trace created:", trace.id);
+        }
+        
+        if (process.env.NODE_ENV !== "production") {
+          console.log("[create-session] ChatKit trace sync:", {
+            chatkitTraceId,
+            chatkitRunId,
+            chatkitSessionId,
+          });
+        }
+      } catch (langfuseError) {
+        // Don't fail the request if Langfuse tracking fails
+        console.error("[create-session] Langfuse tracking error:", langfuseError);
+      }
+    }
+    
     const responsePayload = {
       client_secret: clientSecret,
       expires_after: expiresAfter,
+      user_id: userId, // Include user_id in response for client-side tracking
+      session_id: userId, // Use userId as session_id for now
+      // Include ChatKit trace information for client-side sync (if available)
+      chatkit_trace_id: chatkitTraceId,
+      chatkit_run_id: chatkitRunId,
+      chatkit_session_id: chatkitSessionId,
     };
 
     return buildJsonResponse(
@@ -126,6 +277,44 @@ export async function POST(request: Request): Promise<Response> {
     );
   } catch (error) {
     console.error("Create session error", error);
+    
+    // Track unexpected errors in Langfuse
+    try {
+      const { userId } = await resolveUserId(request);
+      if (userId) {
+        const trace = createTrace(
+          userId,
+          userId,
+          {
+            workflowId: WORKFLOW_ID,
+            action: "session_creation_exception",
+            errorType: "unexpected_exception",
+          },
+          request
+        );
+        if (trace) {
+          trace.span({
+            name: "unexpected_error",
+            input: {
+              workflowId: WORKFLOW_ID,
+            },
+            output: {
+              error: error instanceof Error ? error.message : String(error),
+              errorType: error instanceof Error ? error.constructor.name : typeof error,
+            },
+            metadata: {
+              level: "ERROR",
+              exception: true,
+            },
+          });
+          trace.end();
+        }
+      }
+    } catch (langfuseError) {
+      // Don't fail the request if Langfuse tracking fails
+      console.error("[create-session] Langfuse error tracking failed:", langfuseError);
+    }
+    
     return buildJsonResponse(
       { error: "Unexpected error" },
       500,

@@ -38,9 +38,17 @@ You can get your OpenAI API key from the [OpenAI API Keys](https://platform.open
 
 Update `.env.local` with the variables that match your setup.
 
+**Required:**
 - `OPENAI_API_KEY` — This must be an API key created **within the same org & project as your Agent Builder**. If you already have a different `OPENAI_API_KEY` env variable set in your terminal session, that one will take precedence over the key in `.env.local` one (this is how a Next.js app works). So, **please run `unset OPENAI_API_KEY` (`set OPENAI_API_KEY=` for Windows OS) beforehand**.
 - `NEXT_PUBLIC_CHATKIT_WORKFLOW_ID` — This is the ID of the workflow you created in [Agent Builder](https://platform.openai.com/agent-builder), which starts with `wf_...`
-- (optional) `CHATKIT_API_BASE` - This is a customizable base URL for the ChatKit API endpoint
+
+**Optional:**
+- `NEXT_PUBLIC_INSTRUCTIONS_URL` — URL to fetch instructions content from (opens in new tab when clicking "Read me instruction" button)
+- `NEXT_PUBLIC_AGENT_VERSION` — Agent version to display (defaults to `opi-mm-wf-27.0.0`)
+- `CHATKIT_API_BASE` — Customizable base URL for the ChatKit API endpoint (defaults to `https://api.openai.com`)
+- `NEXT_PUBLIC_LANGFUSE_PUBLIC_KEY` — Langfuse public key for observability tracking (get from [Langfuse Cloud](https://cloud.langfuse.com))
+- `LANGFUSE_SECRET_KEY` — Langfuse secret key for server-side tracking
+- `NEXT_PUBLIC_LANGFUSE_HOST` — Custom Langfuse host URL (defaults to `https://cloud.langfuse.com`)
 
 > Note: if your workflow is using a model requiring organization verification, such as GPT-5, make sure you verify your organization first. Visit your [organization settings](https://platform.openai.com/settings/organization/general) and click on "Verify Organization".
 

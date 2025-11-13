@@ -12,6 +12,7 @@ export default function App() {
     if (process.env.NODE_ENV !== "production") {
       console.info("[ChatKitPanel] widget action", action);
     }
+    // Note: Widget actions are tracked in ChatKitPanel's onClientTool callback
   }, []);
 
   const handleResponseEnd = useCallback(() => {
