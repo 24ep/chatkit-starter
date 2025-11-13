@@ -37,6 +37,7 @@ export default function RootLayout({
       }
       
       // Helper to ensure crypto.randomUUID exists and works
+      // Always applies polyfill to ensure it works in all contexts (HTTP, HTTPS, localhost)
       function ensureRandomUUID(context, contextName) {
         try {
           if (!context || typeof context !== 'object') return;
@@ -45,60 +46,37 @@ export default function RootLayout({
           var cryptoObj = context.crypto || context.msCrypto;
           if (!cryptoObj || !cryptoObj.getRandomValues) return;
           
-          // Always polyfill - be aggressive to ensure compatibility
-          // Even if randomUUID exists, we'll replace it with our working version
+          // Always polyfill - replace any existing randomUUID with our working version
+          // This ensures it works in non-secure contexts (HTTP) where native randomUUID throws
           var polyfillFn = createPolyfill(cryptoObj);
           
-          // Check if existing randomUUID exists and is a function
-          var shouldReplace = true;
-          if (cryptoObj.randomUUID) {
-            // Check if it's actually a function
-            if (typeof cryptoObj.randomUUID !== 'function') {
-              // It exists but is not a function - definitely replace
-              shouldReplace = true;
-            } else {
-              // It's a function, test if it works
-              try {
-                var testUUID = cryptoObj.randomUUID();
-                if (typeof testUUID === 'string' && testUUID.length === 36 && testUUID.indexOf('-') === 8) {
-                  // It works, but we'll still replace it to ensure consistency
-                  shouldReplace = true;
-                } else {
-                  // Doesn't return valid UUID - replace
-                  shouldReplace = true;
-                }
-              } catch(e) {
-                // Definitely replace if it throws
-                shouldReplace = true;
-              }
-            }
-          }
-          
-          // Always apply polyfill to ensure it works
-          if (shouldReplace) {
+          // Always apply polyfill to ensure it works in all contexts
+          try {
+            // Use defineProperty to make it non-configurable and ensure it sticks
+            Object.defineProperty(cryptoObj, 'randomUUID', {
+              value: polyfillFn,
+              writable: true,
+              configurable: true,
+              enumerable: false
+            });
+          } catch(e) {
+            // Fallback to direct assignment if defineProperty fails
             try {
-              // Use defineProperty to make it non-configurable and ensure it sticks
-              Object.defineProperty(cryptoObj, 'randomUUID', {
-                value: polyfillFn,
-                writable: true,
-                configurable: true,
-                enumerable: false
-              });
-            } catch(e) {
-              // Fallback to direct assignment if defineProperty fails
+              cryptoObj.randomUUID = polyfillFn;
+            } catch(e2) {
+              // If that also fails, try wrapping it
               try {
-                cryptoObj.randomUUID = polyfillFn;
-              } catch(e2) {
-                // If that also fails, try wrapping it
+                Object.defineProperty(cryptoObj, 'randomUUID', {
+                  get: function() { return polyfillFn; },
+                  configurable: true,
+                  enumerable: false
+                });
+              } catch(e3) {
+                // Last resort - just assign directly
                 try {
-                  Object.defineProperty(cryptoObj, 'randomUUID', {
-                    get: function() { return polyfillFn; },
-                    configurable: true,
-                    enumerable: false
-                  });
-                } catch(e3) {
-                  // Last resort - just assign directly
                   cryptoObj.randomUUID = polyfillFn;
+                } catch(e4) {
+                  // Silently fail
                 }
               }
             }
@@ -123,27 +101,57 @@ export default function RootLayout({
         contexts.push({ ctx: self, name: 'self' });
       }
       
-      // Also check the bare 'crypto' identifier
-      if (typeof crypto !== 'undefined' && crypto) {
-        ensureRandomUUID({ crypto: crypto }, 'crypto');
-      }
-      
-      // Apply polyfill to all contexts
+      // Apply polyfill to all contexts first
       contexts.forEach(function(item) {
         ensureRandomUUID(item.ctx, item.name);
       });
       
-      // Also ensure the global crypto object (if it exists as a standalone)
-      if (typeof crypto !== 'undefined' && crypto && crypto.getRandomValues) {
-        ensureRandomUUID({ crypto: crypto }, 'global-crypto');
+      // Also ensure the global crypto object directly (most important)
+      // This handles the case where crypto is a standalone global
+      if (typeof crypto !== 'undefined' && crypto) {
+        if (crypto.getRandomValues) {
+          ensureRandomUUID({ crypto: crypto }, 'global-crypto');
+        }
+        // Also try to polyfill the crypto object itself if it's directly accessible
+        try {
+          if (crypto.getRandomValues) {
+            var polyfillFn = createPolyfill(crypto);
+            // Always polyfill the global crypto object
+            // This is critical for non-secure contexts where randomUUID exists but throws
+            try {
+              Object.defineProperty(crypto, 'randomUUID', {
+                value: polyfillFn,
+                writable: true,
+                configurable: true,
+                enumerable: false
+              });
+            } catch(e) {
+              try {
+                crypto.randomUUID = polyfillFn;
+              } catch(e2) {
+                // Silently fail
+              }
+            }
+            // Also ensure window.crypto.randomUUID is polyfilled if window.crypto exists
+            if (typeof window !== 'undefined' && window.crypto && window.crypto === crypto) {
+              // Already handled by ensureRandomUUID above
+            }
+          }
+        } catch(e) {
+          // Silently fail
+        }
       }
+      
       
     } catch(e) {
       console.warn('Crypto polyfill failed:', e);
     }
   }
   
-  // Run immediately and synchronously
+  // Run immediately and synchronously (most important - runs first)
+  polyfillRandomUUID();
+  
+  // Also run immediately again to catch any edge cases
   polyfillRandomUUID();
   
   // Also run on DOMContentLoaded as a fallback
@@ -158,6 +166,7 @@ export default function RootLayout({
   // Run again after a short delay to catch any late-loading scripts
   if (typeof window !== 'undefined' && window.setTimeout) {
     setTimeout(polyfillRandomUUID, 0);
+    setTimeout(polyfillRandomUUID, 10);
   }
 })();
             `,
