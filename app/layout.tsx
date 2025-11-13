@@ -15,9 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* CRITICAL: Load polyfill FIRST with blocking script tag - runs synchronously before everything */}
-        <script src="/crypto-polyfill.js" />
-        {/* Also load using Script component with beforeInteractive as backup */}
+        {/* Load polyfill using Script component with beforeInteractive */}
         <Script
           src="/crypto-polyfill.js"
           strategy="beforeInteractive"
