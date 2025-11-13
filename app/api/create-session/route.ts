@@ -336,24 +336,8 @@ function methodNotAllowedResponse(): Response {
 }
 
 function generateUUID(): string {
-  // Try crypto.randomUUID first (available in modern browsers and Edge Runtime)
-  // Check if it exists, is a function, AND can be called successfully
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    try {
-      // Verify it's actually callable by attempting to call it
-      if (typeof crypto.randomUUID === "function") {
-        const uuid = crypto.randomUUID();
-        // Verify it returns a valid string
-        if (typeof uuid === "string" && uuid.length > 0) {
-          return uuid;
-        }
-      }
-    } catch {
-      // Fall through to alternative method if it throws
-    }
-  }
-
-  // Fallback: Use Web Crypto API's getRandomValues (more widely supported)
+  // Use Web Crypto API's getRandomValues (works in all contexts: HTTP, HTTPS, localhost)
+  // This is more reliable than crypto.randomUUID which requires secure context
   if (typeof crypto !== "undefined" && crypto.getRandomValues) {
     try {
       const bytes = new Uint8Array(16);
